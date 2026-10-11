@@ -10,7 +10,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,sans-serif;background:#F4F5F5}img{max-width:100%}[hidden]{display:none!important}</style>
-<script src="claude-shim.js?v=1791715926"></script>
+<script src="claude-shim.js?v=1791690624"></script>
 </head>
 <body>
 <title>Voertuigenbord logistiek</title>
@@ -566,25 +566,6 @@ details.cb-done summary{cursor:pointer;color:var(--muted);font-weight:700;paddin
 .kviewer iframe{flex:1;width:100%;border:0;background:var(--sunk)}
 .tag-new{font-family:var(--sans);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#fff;background:var(--red);padding:1px 6px;margin-left:6px}
 #updbox .srow b{font-weight:700}
-.bus.compact{gap:6px;padding:9px 11px}
-.bus.compact .row3{margin-top:0}
-.bus .tel{font-family:var(--mono);font-weight:700;font-size:13.5px;color:var(--ocean);text-decoration:none;white-space:nowrap;padding:4px 0}
-.bus .tel:hover{text-decoration:underline}
-.bus .tel.none{color:var(--muted);font-family:var(--sans);font-weight:400;font-size:12.5px}
-.strip.compact{cursor:pointer}
-.strip.compact .sh{grid-template-columns:auto auto auto minmax(0,1fr) auto;border-bottom:0;padding:7px 8px}
-.strip.compact .sh .call{font-size:13px}
-.strip.compact .ritnr{font-size:14px;white-space:nowrap}
-.strip.compact .vt{font-family:var(--mono);font-weight:700;font-size:15px;white-space:nowrap;text-align:right}
-.strip.compact .vt .d{display:block;text-align:right}
-.strip.compact .warn{padding:4px 8px 0}
-.strip.compact .sf{border-top:1px dotted var(--stone);padding:5px 8px 6px;justify-content:flex-end}
-.strip.compact:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
-.busnow{grid-template-columns:1fr}
-.busnow .v2{font-weight:600;font-size:15px}
-.busnow a{color:var(--ocean);font-weight:700}
-.ritlinks{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.ritlinks a{color:var(--ocean);font-weight:700}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;font-weight:600;z-index:30;max-width:calc(100% - 32px)}
 @media (prefers-reduced-motion:no-preference){.strip{transition:transform .12s}.strip:hover{transform:translateY(-1px)}}
 @media (max-width:560px){.clock{margin-left:0}.clock .time{font-size:24px}.brand h1{font-size:21px}}
@@ -625,7 +606,7 @@ details.cb-done summary{cursor:pointer;color:var(--muted);font-weight:700;paddin
 
 <div class="main">
   <div>
-    <div class="section-label">Ritten <span class="count">Klik op een rit of voertuig voor alle gegevens. Sleep een strip (aan ⠿) naar een andere fase of gebruik de knop. De tijd is het geplande vertrek; <span style="color:var(--red);font-weight:700">+min</span> = te laat.</span></div>
+    <div class="section-label">Ritten <span class="count">Sleep een strip (aan ⠿) naar een andere fase of gebruik de knop. Bij act.: <span class="key-exp">blauw</span> = verwacht, anders werkelijk; <span style="color:var(--red);font-weight:700">+min</span> = te laat.</span></div>
     <div class="board-wrap"><div class="board" id="board"></div></div>
   </div>
 </div>
@@ -2168,10 +2149,19 @@ function render(){
     fleet.innerHTML = `<div class="empty">${!E ? 'Kies of maak eerst een evenement.' : S.loaded.b ? (can('bus.create') ? 'Nog geen voertuigen. Voeg de eerste toe met “+ Voertuig”.' : 'Nog geen voertuigen.') : 'Voertuigen laden…'}</div>`;
   } else fleet.innerHTML = buses.map(([id,b])=>{
     const st = b.status||'vrij';
-    const tel = String(b.telefoon||'').trim();
-    return `<div class="bus compact st-${st}${busShown(id)?'':' dim'}" role="button" tabindex="0" data-bus="${id}" title="Klik voor alle gegevens van ${esc(b.naam)}">
+    const mine = Object.entries(S.ritten).filter(([rid,r])=>r.busId===id && inDay(rid));
+    const actief = mine.find(([,r])=>['onderweg','aangekomen','retour'].includes(r.fase));
+    const volgende = mine.filter(([,r])=>(r.fase||'gepland')==='gepland').sort((a,b)=>(toMin(a[1].gv)??9999)-(toMin(b[1].gv)??9999))[0];
+    let info = '';
+    if (actief) info = actief[1].geenRetour ? `Rit ${esc(actief[1].nr)} · blijft bij ${esc(actief[1].bestemming||'bestemming')}` : `Rit ${esc(actief[1].nr)} · terug ${fmt(C[actief[0]].er)}`;
+    else if (volgende) info = `Volgende: rit ${esc(volgende[1].nr)} om ${fmt(C[volgende[0]].ev)}`;
+    else info = 'Geen ritten meer';
+    return `<div class="bus st-${st}${busShown(id)?'':' dim'}" role="button" tabindex="0" data-bus="${id}">
       <div class="row1"><span class="name">${esc(b.naam)}</span><span class="call">${esc(b.roepnummer||'')}</span></div>
-      <div class="row3">${can('bus.status') ? `<button class="pill st-${st}" data-cycle="${id}" type="button" title="${STATUS[st]} · klik om status te wisselen">${PILL[st]}</button>` : `<span class="pill st-${st}" style="cursor:default">${PILL[st]}</span>`}${tel?`<a class="tel" href="tel:${esc(tel.replace(/[^\d+]/g,''))}" title="Bel ${esc(b.chauffeur||'chauffeur')}">${esc(tel)}</a>`:'<span class="tel none">geen telefoon</span>'}</div>
+      <div class="crew">${esc(b.chauffeur||'Geen chauffeur')}${b.bijrijder?' + '+esc(b.bijrijder):''}</div>
+      ${b.notitie?`<div class="note">${esc(b.notitie)}</div>`:''}
+      <div class="row3">${can('bus.status') ? `<button class="pill st-${st}" data-cycle="${id}" type="button" title="${STATUS[st]} · klik om status te wisselen">${PILL[st]}</button>` : `<span class="pill st-${st}" style="cursor:default">${PILL[st]}</span>`}<span class="num" style="color:var(--muted)">${info}</span></div>
+      <div class="lastlog">${(()=>{ const ls=S.log.filter(e=>e.busId===id).slice(0, P.logLines||3); return ls.length ? ls.map(l=>`<div class="last" title="${esc(l.tekst)}"><span class="t">${esc(l.tijd)}</span><span>${esc(l.tekst)}</span></div>`).join('') : `<div class="last"><span class="t">--:--</span><span>Nog geen logregels</span></div>`; })()}</div>
     </div>`;
   }).join('');
 
@@ -2207,23 +2197,27 @@ function strip(id, c){
   const r = S.ritten[id], f = r.fase||'gepland', b = S.buses[r.busId] || {};
   const st = b.status || FASE_STATUS[f];
   const late = (f==='gepland' && c.dv>0) || ((f==='onderweg') && c.da>0) || ((f==='aangekomen'||f==='retour') && c.dr>0);
-  const d = f==='gepland' ? c.dv : f==='onderweg' ? c.da : (f==='aangekomen'||f==='retour') ? c.dr : null;
   const fi = FIDX[f];
-  return `<article class="strip compact st-${st}${late&&f!=='afgerond'?' late':''}${hl(id)}" draggable="${canMove(r)}" data-rit="${id}" tabindex="0" title="Klik voor alle gegevens van rit ${esc(r.nr)}">
-    <div class="sh">${!canMove(r)?'':'<span class="grip" aria-hidden="true" title="Sleep naar een andere fase">⠿</span>'}<span class="call">${esc(b.roepnummer||'–')}</span><span class="ritnr">Rit ${esc(r.nr)}</span><span class="dest" title="${esc(r.bestemming)}">${esc(r.bestemming||'Geen bestemming')}</span><span class="vt" title="Gepland vertrek">${esc(r.gv||'--:--')}${late&&f!=='afgerond'?delta(d):''}</span></div>
-    ${c.wachtOp!=null && f==='gepland' ? `<div class="warn">Wacht tot rit ${esc(c.wachtOp)} terug is</div>`:''}
-    ${canMove(r) ? `<div class="sf"><span class="nav">
-        ${fi>0?`<button class="back" type="button" data-back="${id}" title="Terug naar ${FASES[fi-1].naam}" aria-label="Terug naar ${FASES[fi-1].naam}">◂</button>`:''}
-        ${FASES[fi].knop?`<button class="advance" type="button" data-adv="${id}">${(f==='aangekomen' && r.geenRetour) ? 'Afronden' : FASES[fi].knop} ▸</button>`:''}
-      </span></div>` : ''}
+  const row = (lbl, val, d, exp) => `<div class="v${exp?' exp':''}"><span class="lbl">${lbl}</span>${val}${d||''}</div>`;
+  return `<article class="strip st-${st}${late&&f!=='afgerond'?' late':''}${hl(id)}" draggable="${canMove(r)}" data-rit="${id}">
+    <div class="sh">${!canMove(r)?'':'<span class="grip" aria-hidden="true" title="Sleep naar een andere fase">⠿</span>'}<span class="ritnr">R${esc(r.nr)}</span><span class="dest" title="${esc(r.bestemming)}">${esc(r.bestemming||'Geen bestemming')}</span><span class="call">${esc(b.roepnummer||'')}</span></div>
+    <div class="meta"><span class="stag s-${soortOf(r)}" title="${SOORTEN[soortOf(r)]}">${SOORT_KORT[soortOf(r)]}</span><b>${esc(b.naam||'Geen voertuig')}</b><span>${esc(b.chauffeur||'')}${b.bijrijder?' + '+esc(b.bijrijder):''}</span>${hasP(r)&&r.personen?`<span>· ${esc(r.personen)} pers.</span>`:''}${hasM(r)?`<span class="mat">· ${esc(r.materiaal||'materiaal')}</span>`:''}<span class="num">· ${c.durW!=null?c.durW+' min werk.':c.dur+' min'}</span></div>
+    <div class="times">
+      <span></span><span class="k">Vertr.</span><span class="k">Aank.</span><span class="k">Retour</span>
+      <span class="rl">gepl</span><span class="v">${esc(r.gv||'--:--')}</span><span class="v">${esc(r.ga||'--:--')}</span><span class="v">${r.geenRetour?'<span class="noret">geen</span>':esc(r.gr||'--:--')}</span>
+      <span class="rl">act.</span>
+      <span class="v ${r.wv?'act':'exp'}" title="${r.wv?'Werkelijk':'Verwacht'}">${r.wv?esc(r.wv):fmt(c.ev)}${delta(c.dv)}</span>
+      <span class="v ${r.wa?'act':'exp'}" title="${r.wa?'Werkelijk':'Verwacht'}">${r.wa?esc(r.wa):fmt(c.ea)}${delta(c.da)}</span>
+      ${r.geenRetour ? '<span class="v"><span class="noret">geen</span></span>' : `<span class="v ${r.wr?'act':'exp'}" title="${r.wr?'Werkelijk':'Verwacht'}">${r.wr?esc(r.wr):fmt(c.er)}${delta(c.dr)}</span>`}
+    </div>
+    ${c.wachtOp!=null && f==='gepland' ? `<div class="warn">Wacht tot rit ${esc(c.wachtOp)} terug is${c.depAuto?'':' (handmatig)'}</div>`:''}
+    <div class="sf"><span class="rlink">${r.route?`<button class="qr" type="button" data-qr="${id}" title="Toon QR-code groot" aria-label="QR-code route rit ${esc(r.nr)}">${qrSVG(r.route)}</button><a href="${esc(safeUrl(r.route))}" target="_blank" rel="noopener">Route ↗</a>`:`<span class="noroute">Geen route</span>`}${docLinks(r)}</span><span class="nav">
+        ${fi>0 && canMove(r)?`<button class="back" type="button" data-back="${id}" title="Terug naar ${FASES[fi-1].naam}" aria-label="Terug naar ${FASES[fi-1].naam}">◂</button>`:''}
+        <button class="edit" type="button" data-edit="${id}">${can('ride.edit')?'Wijzig':'Open'}</button>
+        ${FASES[fi].knop && canMove(r)?`<button class="advance" type="button" data-adv="${id}">${(f==='aangekomen' && r.geenRetour) ? 'Afronden' : FASES[fi].knop} ▸</button>`:''}
+      </span></div>
   </article>`;
 }
-// klik op een strip (niet op een knop) opent de rit
-document.addEventListener('click', e=>{
-  const st = e.target.closest && e.target.closest('#board .strip'); if (!st || e.target.closest('button,a,.grip')) return;
-  ritDialog(st.dataset.rit);
-});
-document.addEventListener('keydown', e=>{ const st = e.target.closest?.('#board .strip'); if (st && e.target===st && (e.key==='Enter'||e.key===' ')){ e.preventDefault(); ritDialog(st.dataset.rit); } });
 
 function renderLog(){
   const list = document.getElementById('b_list');
@@ -2357,18 +2351,6 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && $('#ov')) close
 const fld = (id,label,val,type='text',extra='') => `<div class="fld ${extra}"><label for="${id}">${label}</label><input id="${id}" type="${type}" value="${esc(val??'')}"></div>`;
 const armDelete = (btn, fn) => { if (!btn) return; btn.addEventListener('click', ()=>{ if (btn.classList.contains('armed')) fn(); else { btn.classList.add('armed'); btn.textContent='Zeker weten? Klik nogmaals'; setTimeout(()=>{btn.classList.remove('armed'); btn.textContent=btn.dataset.label;},4000);} }); };
 
-function busNow(id){
-  const C = compute();
-  const mine = Object.entries(S.ritten).filter(([rid,r])=>r.busId===id && inDay(rid));
-  const actief = mine.find(([,r])=>['onderweg','aangekomen','retour'].includes(r.fase));
-  const volgende = mine.filter(([,r])=>(r.fase||'gepland')==='gepland').sort((a,b)=>(toMin(a[1].gv)??9999)-(toMin(b[1].gv)??9999))[0];
-  const b = S.buses[id] || {};
-  const parts = [];
-  if (actief) parts.push(`<div><div class="k">Nu</div><div class="v2">Rit ${esc(actief[1].nr)} · ${esc(FASES[FIDX[actief[1].fase]].naam)} · ${esc(actief[1].bestemming||'')}${actief[1].geenRetour?' · blijft daar':' · terug '+fmt(C[actief[0]].er)}</div></div>`);
-  parts.push(`<div><div class="k">Volgende</div><div class="v2">${volgende ? `Rit ${esc(volgende[1].nr)} om ${fmt(C[volgende[0]].ev)} · ${esc(volgende[1].bestemming||'')}` : 'Geen ritten meer vandaag'}</div></div>`);
-  if (b.telefoon) parts.push(`<div><div class="k">Bellen</div><div class="v2"><a href="tel:${esc(String(b.telefoon).replace(/[^\d+]/g,''))}">${esc(b.telefoon)}</a>${b.chauffeur?' · '+esc(b.chauffeur):''}</div></div>`);
-  return `<div class="calc busnow">${parts.join('')}</div>`;
-}
 function busDialog(id){
   const isNew = !id; const b = isNew ? {status:'vrij'} : S.buses[id];
   if (!b) return;
@@ -2376,12 +2358,10 @@ function busDialog(id){
   openModal(`<div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dh">
     <header><h3 id="dh">${isNew?'Nieuw voertuig':esc(b.naam)}</h3><button class="x" data-close aria-label="Sluiten">×</button></header>
     <form class="body" id="bf">
-      ${isNew?'':busNow(id)}
       <div class="grid">
         ${fld('b_naam','Naam voertuig',b.naam)}
         ${fld('b_roep','Roepnummer',b.roepnummer)}
         ${fld('b_ch','Chauffeur',b.chauffeur)}
-        ${fld('b_tel','Telefoon chauffeur',b.telefoon,'tel')}
         ${fld('b_bij','Bijrijder',b.bijrijder)}
         <div class="fld"><label for="b_st">Status</label><select id="b_st">${Object.entries(STATUS).map(([k,v])=>`<option value="${k}" ${ (b.status||'vrij')===k?'selected':''}>${v}</option>`).join('')}</select></div>
         ${fld('b_note','Notitie',b.notitie,'text','wide')}
@@ -2393,12 +2373,12 @@ function busDialog(id){
     <footer>${isNew||!can('bus.delete')?'<span></span>':'<button class="btn danger" type="button" id="b_del" data-label="Voertuig verwijderen">Voertuig verwijderen</button>'}
       <div class="r"><button class="btn" type="button" data-close>${(isNew?can('bus.create'):(can('bus.edit')||can('bus.status')||can('bus.note')))?'Annuleer':'Sluiten'}</button><button class="btn primary" type="submit" form="bf" ${(isNew?can('bus.create'):(can('bus.edit')||can('bus.status')||can('bus.note')))?'':'hidden'}>${isNew?'Toevoegen':'Opslaan'}</button></div></footer>
   </div>`, ov=>{
-    if (!isNew && !can('bus.edit')) ['b_naam','b_roep','b_ch','b_tel','b_bij'].forEach(i=>{ ov.querySelector('#'+i).disabled = true; });
+    if (!isNew && !can('bus.edit')) ['b_naam','b_roep','b_ch','b_bij'].forEach(i=>{ ov.querySelector('#'+i).disabled = true; });
     if (!isNew && !can('bus.status')) ov.querySelector('#b_st').disabled = true;
     if (!isNew && !can('bus.note')) ov.querySelector('#b_note').disabled = true;
     ov.querySelector('#bf').addEventListener('submit', async e=>{
       e.preventDefault();
-      const data = {naam:$('#b_naam').value.trim()||'Nieuw voertuig', roepnummer:$('#b_roep').value.trim(), chauffeur:$('#b_ch').value.trim(), telefoon:$('#b_tel').value.trim(), bijrijder:$('#b_bij').value.trim(), status:$('#b_st').value, notitie:$('#b_note').value.trim()};
+      const data = {naam:$('#b_naam').value.trim()||'Nieuw voertuig', roepnummer:$('#b_roep').value.trim(), chauffeur:$('#b_ch').value.trim(), bijrijder:$('#b_bij').value.trim(), status:$('#b_st').value, notitie:$('#b_note').value.trim()};
       if (isNew){
         const nid = 'b'+Date.now().toString(36);
         if (await write(()=>edoc('buses/'+nid).set(data))){ closeModal(); await log(nid, `Voertuig toegevoegd: ${data.naam}${data.chauffeur?', chauffeur '+data.chauffeur:''}`); }
@@ -2407,7 +2387,7 @@ function busDialog(id){
         if (!changed.length){ closeModal(); return; }
         if (await write(()=>edoc('buses/'+id).update(Object.fromEntries(changed.map(k=>[k,data[k]]))))){
           closeModal();
-          const names = {naam:'naam',roepnummer:'roepnummer',chauffeur:'chauffeur',telefoon:'telefoon',bijrijder:'bijrijder',notitie:'notitie'};
+          const names = {naam:'naam',roepnummer:'roepnummer',chauffeur:'chauffeur',bijrijder:'bijrijder',notitie:'notitie'};
           const parts = changed.filter(k=>k!=='status').map(k=>`${names[k]} → ${data[k]||'leeg'}`);
           if (parts.length) await log(id, 'Gewijzigd: '+parts.join(', '));
           if (changed.includes('status')) await log(id, `Status: ${STATUS[data.status]}`);
@@ -2461,7 +2441,6 @@ function ritDialog(id){
         ${fld('r_rs','Retour gestart',r.rs,'time','for-ret')}
         ${fld('r_wr','Terug op basis (werkelijk)',r.wr,'time','for-ret')}
       </div>
-      ${!isNew && (r.route || docLinks(r)) ? `<div class="ritlinks">${r.route?`<button class="qr" type="button" data-qr="${id}" title="Toon QR-code groot" aria-label="QR-code route">${qrSVG(r.route)}</button><a href="${esc(safeUrl(r.route))}" target="_blank" rel="noopener">Route ↗</a>`:''}${docLinks(r)}</div>` : ''}
       ${C?`<div class="sub">Berekend</div><div class="calc">
         <div><div class="k">Aankomst (verwacht)</div><div class="v">${fmt(C.ea)}${delta(C.da)}</div></div>
         <div class="for-ret"><div class="k">Retour (verwacht)</div><div class="v">${fmt(C.er)}${delta(C.dr)}</div></div>
@@ -2522,7 +2501,7 @@ document.addEventListener('click', async e=>{
   if (t.dataset.logsave){ const row=t.closest('.le'); const [tm,tx]=row.querySelectorAll('input'); const id=t.dataset.logsave;
     return write(()=>edoc('log/'+id).update({tijd:tm.value||'', tekst:tx.value.trim()})); }
   if (t.dataset.logcancel!==undefined) return render();
-  if (t.dataset.bus && !e.target.closest('button,a')) return busDialog(t.dataset.bus);
+  if (t.dataset.bus && !e.target.closest('button')) return busDialog(t.dataset.bus);
 });
 document.addEventListener('keydown', e=>{ const b=e.target.closest?.('[data-bus]'); if (b && (e.key==='Enter'||e.key===' ') && e.target===b){ e.preventDefault(); busDialog(b.dataset.bus); } });
 
@@ -3066,7 +3045,7 @@ function exportRows(){
     return [rideDay(r), isFinite(+r.nr)&&r.nr!==''?+r.nr:r.nr, b.naam||'', b.roepnummer||'', b.chauffeur||'', b.bijrijder||'', FASES[FIDX[r.fase||'gepland']].naam, r.bestemming||'', r.plaats||'', hasP(r)?r.teams||'':'', hasP(r)&&Number.isFinite(pers)?pers:'', SOORTEN[soortOf(r)], hasM(r)?r.materiaal||'':'', r.na==='-' ? 'geen' : (r.na && S.ritten[r.na] ? S.ritten[r.na].nr : 'auto'),
       r.gv||'', r.ga||'', r.geenRetour?'ja':'', r.gr||'', r.wv||'', r.wa||'', r.rs||'', r.wr||'', fmt(c.ea).replace('--:--',''), fmt(c.er).replace('--:--',''), c.durW!=null?c.durW:c.dur, r.route||'', hasM(r)?r.rentman||'':'', hasM(r)&&r.bestellijst?r.bestellijst.naam||'pdf':'', r.notitie||''];
   });
-  const buses = Object.values(S.buses).sort((a,b)=>natural(a.naam,b.naam)).map(b=>[b.naam||'', b.roepnummer||'', b.chauffeur||'', b.telefoon||'', b.bijrijder||'', STATUS[b.status||'vrij'], b.notitie||'']);
+  const buses = Object.values(S.buses).sort((a,b)=>natural(a.naam,b.naam)).map(b=>[b.naam||'', b.roepnummer||'', b.chauffeur||'', b.bijrijder||'', STATUS[b.status||'vrij'], b.notitie||'']);
   const logs = [...S.log].sort((a,b)=>(a.t||0)-(b.t||0)).map(e=>[e.t?isoOf(new Date(e.t)):'', e.tijd||'', e.busId?busName(e.busId):'', e.tekst||'', e.soort==='notitie'?'Notitie':'Automatisch', e.gebruiker||'']);
   return {rows, buses, logs};
 }
@@ -3078,7 +3057,7 @@ async function exportXlsx(){
   ws['!cols'] = [11,6,9,11,20,16,11,26,14,40,9,22,30,12,10,10,8,10,10,10,10,10,10,10,9,42,40,24,30].map(w=>({wch:w}));
   ws['!autofilter'] = {ref: X.utils.encode_range({s:{r:0,c:0}, e:{r:Math.max(rows.length,1), c:EXPORT_HEAD.length-1}})};
   X.utils.book_append_sheet(wb, ws, 'Ritten');
-  const wb2 = X.utils.aoa_to_sheet([['Voertuig','Roepnummer','Chauffeur','Telefoon','Bijrijder','Status','Notitie'], ...buses]); wb2['!cols']=[10,11,22,14,22,14,30].map(w=>({wch:w}));
+  const wb2 = X.utils.aoa_to_sheet([['Voertuig','Roepnummer','Chauffeur','Bijrijder','Status','Notitie'], ...buses]); wb2['!cols']=[10,11,22,22,14,30].map(w=>({wch:w}));
   X.utils.book_append_sheet(wb, wb2, 'Voertuigen');
   const wb3 = X.utils.aoa_to_sheet([['Datum','Tijd','Voertuig','Tekst','Soort','Gebruiker'], ...logs]); wb3['!cols']=[11,7,10,80,12,18].map(w=>({wch:w}));
   X.utils.book_append_sheet(wb, wb3, 'Logboek');
