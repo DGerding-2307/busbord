@@ -554,7 +554,8 @@ function resetEvent(E, mode, u) {
 
 const SEC_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
+  'X-Frame-Options': 'SAMEORIGIN',          // eigen pagina mag zichzelf inbedden (kaartweergave), andere sites niet
+  'Content-Security-Policy': "frame-ancestors 'self'",
   'Referrer-Policy': 'no-referrer',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
   'Cross-Origin-Opener-Policy': 'same-origin',

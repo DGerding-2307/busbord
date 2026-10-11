@@ -85,7 +85,7 @@ Wat de server zelf doet:
 - Alle opgeslagen waarden worden gecontroleerd (fase, status, tijden, datums, veldnamen), zodat niemand via een rit of voertuig code in andermans scherm kan zetten.
 - Inloggen: na 8 foute pogingen per gebruikersnaam en adres, 30 per adres of 20 per account volgt 5 minuten wachten.
 - Sessiecookie is HttpOnly en SameSite; via HTTPS ook Secure. Wijzigingen accepteren alleen JSON, dus een vreemde website kan niets namens je opslaan.
-- Beveiligingsheaders tegen inbedden in andere sites en het raden van bestandstypes. Pdf-bijlagen openen in een afgeschermde weergave; alleen echte pdf's tot 20 MB, samen maximaal 2 GB.
+- Beveiligingsheaders tegen inbedden in andere sites (alleen het bord zelf mag pdf's inbedden) en het raden van bestandstypes. Pdf-bijlagen openen in een afgeschermde weergave; alleen echte pdf's tot 20 MB, samen maximaal 2 GB.
 - Een kapot verzoek laat de server niet meer vallen.
 
 Wat jij moet doen:
