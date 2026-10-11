@@ -10,7 +10,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,sans-serif;background:#F4F5F5}img{max-width:100%}[hidden]{display:none!important}</style>
-<script src="claude-shim.js?v=1791148682"></script>
+<script src="claude-shim.js?v=1791690624"></script>
 </head>
 <body>
 <title>Voertuigenbord logistiek</title>
@@ -551,6 +551,21 @@ details.cb-done summary{cursor:pointer;color:var(--muted);font-weight:700;paddin
 .pushst{font-weight:700;color:var(--muted);margin-right:auto;display:inline-flex;align-items:center;gap:8px}
 .pushst::before{content:"";width:10px;height:10px;background:var(--line)}
 .pushst.on{color:var(--ocean)} .pushst.on::before{background:var(--ocean)}
+.kaartlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:10px}
+.kaart{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--ocean);display:grid}
+.kaart-open{display:grid;gap:4px;text-align:left;background:none;border:0;padding:14px;cursor:pointer;color:inherit;min-height:110px;align-content:start}
+.kaart-open:hover .kaart-n{text-decoration:underline}
+.kaart-ico{width:34px;height:40px;background:var(--pearl);border:1px solid var(--line);position:relative;margin-bottom:4px}
+.kaart-ico::after{content:"PDF";position:absolute;left:-4px;bottom:5px;font-size:9.5px;font-weight:800;background:var(--red);color:#fff;padding:1px 3px}
+.kaart-n{font-weight:800;font-size:16px;color:var(--ocean);overflow-wrap:anywhere}
+.kaart-o{color:var(--muted);font-size:13.5px}
+.kaart-f{display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px 12px;border-top:1px dotted var(--stone)}
+.kaart-f a.btn{text-decoration:none}
+.kviewer{width:min(1200px,100%);height:calc(100vh - 48px);display:flex;flex-direction:column}
+.kviewer header .r{display:flex;gap:8px;align-items:center}
+.kviewer iframe{flex:1;width:100%;border:0;background:var(--sunk)}
+.tag-new{font-family:var(--sans);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#fff;background:var(--red);padding:1px 6px;margin-left:6px}
+#updbox .srow b{font-weight:700}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;font-weight:600;z-index:30;max-width:calc(100% - 32px)}
 @media (prefers-reduced-motion:no-preference){.strip{transition:transform .12s}.strip:hover{transform:translateY(-1px)}}
 @media (max-width:560px){.clock{margin-left:0}.clock .time{font-size:24px}.brand h1{font-size:21px}}
@@ -576,6 +591,7 @@ details.cb-done summary{cursor:pointer;color:var(--muted);font-weight:700;paddin
   <button class="tab" role="tab" id="tab-planning" data-view="planning" aria-selected="false" type="button">Planning</button>
   <button class="tab" role="tab" id="tab-lijst" data-view="lijst" aria-selected="false" type="button">Rittenlijst</button>
   <button class="tab" role="tab" id="tab-log" data-view="log" aria-selected="false" type="button">Logboek</button>
+  <button class="tab" role="tab" id="tab-kaarten" data-view="kaarten" aria-selected="false" type="button">Kaarten</button>
   <button class="tab" role="tab" id="tab-instellingen" data-view="instellingen" aria-selected="false" type="button">Instellingen</button>
   <button class="tab" role="tab" id="tab-evenementen" data-view="evenementen" aria-selected="false" type="button" hidden>Evenementen</button>
   <button class="tab" role="tab" id="tab-gebruikers" data-view="gebruikers" aria-selected="false" type="button" hidden>Gebruikers</button>
@@ -612,6 +628,13 @@ details.cb-done summary{cursor:pointer;color:var(--muted);font-weight:700;paddin
   </div>
   <div class="tbl-wrap"><table class="rt" id="rtable"></table></div>
 </div>
+<div id="view-kaarten" hidden>
+  <div class="list-head">
+    <p>Kaarten van dit evenement, zoals een plattegrond, routes en parkeerplaatsen. Tik op een kaart om hem te bekijken; op een telefoon opent hij met inzoomen.</p>
+    <div class="list-tools"><label class="btn primary filebtn" for="k_add" data-need="kaart.edit">+ Kaarten toevoegen (pdf)<input type="file" id="k_add" multiple accept="application/pdf,.pdf"></label></div>
+  </div>
+  <div class="kaartlist" id="kaartlist"></div>
+</div>
 <div id="view-log" hidden>
   <div class="logtools">
     <div class="lf">
@@ -642,6 +665,11 @@ details.cb-done summary{cursor:pointer;color:var(--muted);font-weight:700;paddin
       </fieldset>
       <div class="srow"><label for="s_loglines">Logregels per voertuig onder Vloot</label><input type="number" id="s_loglines" min="1" max="10"></div>
       <div class="srow"><label for="s_hidedone">Afgeronde ritten verbergen op het bord</label><input type="checkbox" id="s_hidedone"></div>
+    </section>
+    <section class="card" id="updcard" data-need="users">
+      <h2>Updates</h2>
+      <p class="hint">Nieuwe versies komen van GitHub. De server installeert ze zelf en herstart even; alle schermen laden daarna vanzelf opnieuw.</p>
+      <div id="updbox"></div>
     </section>
     <section class="card" id="pushcard">
       <h2>Meldingen op dit apparaat</h2>
@@ -2007,7 +2035,7 @@ S.day = todayISO();
 const edoc = p => db.doc('ev/'+E+'/'+p);
 const ecol = c => db.collection('ev/'+E+'/'+c);
 const ROLE_NAMES = {admin:'Admin', coordinator:'Coördinator', centralist:'Centralist', chauffeur:'Chauffeur', waarnemer:'Waarnemer'};
-const ALL_RIGHTS = ['move','ride.create','ride.edit','ride.delete','bus.create','bus.edit','bus.delete','bus.status','bus.note','log.add','log.edit','log.delete','event.edit','event.create','event.delete','import','reset','users','alerts'];
+const ALL_RIGHTS = ['kaart.edit','move','ride.create','ride.edit','ride.delete','bus.create','bus.edit','bus.delete','bus.status','bus.note','log.add','log.edit','log.delete','event.edit','event.create','event.delete','import','reset','users','alerts'];
 const RIGHTS = {
   admin: ALL_RIGHTS,
   coordinator: ALL_RIGHTS.filter(r=>!['reset','users','event.delete'].includes(r)),
@@ -2019,7 +2047,7 @@ const can = a => (RIGHTS[ME.rol]||[]).includes(a);
 const ownBus = () => (ME.voertuig||{})[E] || '';
 const canMove = r => !!r && can('move') && (ME.rol!=='chauffeur' || r.busId===ownBus());
 
-function toast(msg){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), 3200); }
+function toast(msg){ document.querySelectorAll('.toast').forEach(x=>x.remove()); const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), 3200); }
 
 /* ---------- berekening ---------- */
 /* ---------- dagen ---------- */
@@ -2160,6 +2188,7 @@ function render(){
   if (view==='instellingen') renderSettings();
   if (view==='gebruikers') renderUsers();
   if (view==='evenementen') renderEvents();
+  if (view==='kaarten') renderKaarten();
   renderEvSel();
   if (can('alerts')) checkAlerts(C);
 }
@@ -2889,10 +2918,11 @@ function setView(v){
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', String(t.dataset.view===v)));
   const allowed = allowedViews(); if (!allowed.includes(v)) v = view = allowed[0];
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', String(t.dataset.view===v)));
-  ['bord','planning','lijst','log','instellingen','evenementen','gebruikers','rit','cbord'].forEach(x=>{ $('#view-'+x).hidden = v!==x; });
+  ['bord','planning','lijst','log','kaarten','instellingen','evenementen','gebruikers','rit','cbord'].forEach(x=>{ $('#view-'+x).hidden = v!==x; });
   $('#busfilter').hidden = !['bord','planning'].includes(v);
   $('#daybar').hidden = !['bord','planning'].includes(v);
   if (v==='gebruikers' && USERS!==null && USERS!==undefined) loadUsers();
+  if (v==='instellingen') renderUpdates();
   if (v==='instellingen') renderPushBox(document.querySelector('#pushcard [data-pushbox]'));
   try { localStorage.setItem('busbord-view-'+ME.rol, v); } catch(_){}
   render();
@@ -3234,13 +3264,14 @@ function cleanRit(r){ r = {...r}; if (FIDX[r.fase]===undefined) r.fase = 'geplan
 function switchEvent(id){
   unsubs.forEach(u=>{ try{ u(); }catch(_){} }); unsubs = [];
   E = id || ''; if (E){ P.event = E; savePrefs(); }
-  S.buses = {}; S.ritten = {}; S.log = []; S.loaded = {b:false, r:false}; S.cfg = S.events[E] || {};
+  S.buses = {}; S.ritten = {}; S.log = []; S.kaarten = {}; S.loaded = {b:false, r:false}; S.cfg = S.events[E] || {};
   S.day = todayISO(); ganttUserScrolled = false; ganttFocus = null;
   ALERTS.length = 0; alerted.clear(); renderAlerts(); lastFase.clear(); rittenSeen = false;
   if (!E || !db){ S.loaded.b = S.loaded.r = true; render(); return; }
   const err = e => { if (e?.code==='revoked') toast('Je toegang is gewijzigd.'); };
   unsubs.push(ecol('buses').onSnapshot(s=>{ S.buses=Object.fromEntries(s.docs.map(d=>[d.id,cleanBus(d.data())])); S.loaded.b=true; schedule(); }, err));
   unsubs.push(ecol('ritten').onSnapshot(s=>{ const next=Object.fromEntries(s.docs.map(d=>[d.id,cleanRit(d.data())])); watchMoves(next); S.ritten=next; S.loaded.r=true; schedule(); if (pendingOpen) setTimeout(tryOpen, 0); }, err));
+  unsubs.push(ecol('kaarten').onSnapshot(s=>{ S.kaarten=Object.fromEntries(s.docs.map(d=>[d.id,{...d.data()}])); schedule(); }, err));
   unsubs.push(ecol('log').orderBy('t','desc').limit(1000).onSnapshot(s=>{ S.log=s.docs.map(d=>({id:d.id,...d.data()})); schedule(); }, err));
   render();
 }
@@ -3491,8 +3522,8 @@ function applyRole(){
   document.querySelectorAll('#evcard input').forEach(i=>{ i.disabled = !can('event.edit'); });
 }
 function allowedViews(){
-  if (ME.rol==='chauffeur') return ['rit','cbord'];
-  const v = ['bord','planning','lijst','log'];
+  if (ME.rol==='chauffeur') return ['rit','cbord','kaarten'];
+  const v = ['bord','planning','lijst','log','kaarten'];
   if (can('event.edit')) v.push('evenementen');
   v.push('instellingen');
   if (can('users')) v.push('gebruikers');
@@ -3702,6 +3733,7 @@ function renderChauffeur(C){
   renderCallBar(); updateSub(); updateBanner();
   const own = ownBus(), b = S.buses[own] || {};
   const noBus = !own ? `<div class="rc-empty"><h2>Nog geen voertuig</h2><p>Je bent voor dit evenement nog niet aan een voertuig gekoppeld. Vraag de teamleider of admin.</p></div>` : '';
+  if (view==='kaarten'){ renderKaarten(); return; }
   if (view==='rit'){
     const box = $('#ritcard');
     if (noBus){ box.innerHTML = noBus; return; }
@@ -3916,6 +3948,108 @@ if (navigator.serviceWorker){
 }
 window.addEventListener('hashchange', ()=>openFromHash());
 if (PUSH_OK) swReady().catch(()=>{});
+
+/* ---------- kaarten (pdf) ---------- */
+const kaartList = () => Object.entries(S.kaarten||{}).sort(([,a],[,b])=>(a.volgorde??0)-(b.volgorde??0) || natural(a.naam||'',b.naam||''));
+function renderKaarten(){
+  const box = $('#kaartlist'); if (!box) return;
+  const list = kaartList(), edit = can('kaart.edit');
+  const html = !E ? '<div class="empty">Kies eerst een evenement.</div>' : list.length ? list.map(([id,k],i)=>`<article class="kaart">
+      <button class="kaart-open" type="button" data-kview="${id}" aria-label="Bekijk ${esc(k.naam||'kaart')}"><span class="kaart-ico" aria-hidden="true"></span><span class="kaart-n">${esc(k.naam||'Kaart')}</span>${k.omschrijving?`<span class="kaart-o">${esc(k.omschrijving)}</span>`:''}</button>
+      <div class="kaart-f">
+        <a class="btn small" href="${esc(pdfUrl(k.bestand||{}))}" target="_blank" rel="noopener">Openen ↗</a>
+        ${edit ? `<button class="btn small" type="button" data-kup="${id}" ${i===0?'disabled':''} aria-label="Naar voren">↑</button><button class="btn small" type="button" data-kdown="${id}" ${i===list.length-1?'disabled':''} aria-label="Naar achteren">↓</button><button class="btn small" type="button" data-kedit="${id}">Wijzig</button>` : ''}
+      </div></article>`).join('') :
+    `<div class="empty">Nog geen kaarten voor dit evenement.${edit?' Voeg ze toe met “+ Kaarten toevoegen”.':''}</div>`;
+  if (box.dataset.h !== html){ box.innerHTML = html; box.dataset.h = html; }
+}
+async function addKaarten(files){
+  if (!E || !can('kaart.edit')) return;
+  let n = 0, volg = Math.max(0, ...kaartList().map(([,k])=>k.volgorde||0));
+  for (const f of files){
+    try {
+      toast(`Uploaden: ${f.name}`);
+      const b = await uploadPdf(f);
+      const id = 'k'+Date.now().toString(36)+n;
+      const naam = f.name.replace(/\.pdf$/i,'').replace(/[_-]+/g,' ').trim() || 'Kaart';
+      if (await write(()=>edoc('kaarten/'+id).set({naam, omschrijving:'', bestand:b, volgorde:++volg, t:Date.now()}))){ n++; await log('', `Kaart toegevoegd: ${naam}`); }
+    } catch(e){ toast(`${f.name}: ${e.message||'uploaden lukte niet'}`); }
+  }
+  if (n) toast(`${n} kaart${n===1?'':'en'} toegevoegd`);
+}
+function kaartViewer(id){
+  const k = (S.kaarten||{})[id]; if (!k || !k.bestand) return;
+  const url = pdfUrl(k.bestand);
+  if (matchMedia('(max-width:700px)').matches || IOS){ window.open(url, '_blank', 'noopener'); return; }   // telefoon: eigen pdf-weergave met inzoomen
+  openModal(`<div class="dlg kviewer" role="dialog" aria-modal="true" aria-labelledby="dh">
+    <header><h3 id="dh">${esc(k.naam||'Kaart')}</h3><div class="r"><a class="btn small" href="${esc(url)}" target="_blank" rel="noopener">Openen in nieuw tabblad ↗</a><button class="x" data-close aria-label="Sluiten">×</button></div></header>
+    <iframe src="${esc(url)}#view=FitH" title="${esc(k.naam||'Kaart')}"></iframe>
+  </div>`);
+}
+function kaartDialog(id){
+  const k = (S.kaarten||{})[id]; if (!k || !can('kaart.edit')) return;
+  openModal(`<div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dh" style="width:min(520px,100%)">
+    <header><h3 id="dh">Kaart wijzigen</h3><button class="x" data-close aria-label="Sluiten">×</button></header>
+    <form class="body" id="kf">
+      <div class="grid">${fld('k_naam','Naam',k.naam,'text','wide')}${fld('k_oms','Omschrijving',k.omschrijving,'text','wide')}</div>
+      <div class="fld wide"><label>Bestand</label><div class="pdfrow" id="k_pdfrow"></div></div>
+    </form>
+    <footer><button class="btn danger" type="button" id="k_del" data-label="Kaart verwijderen">Kaart verwijderen</button><div class="r"><button class="btn" type="button" data-close>Annuleer</button><button class="btn primary" type="submit" form="kf">Opslaan</button></div></footer>
+  </div>`, ov=>{
+    const st = {val:k.bestand||null}; wirePdf(ov, 'k', st, false);
+    ov.querySelector('#kf').addEventListener('submit', async e=>{
+      e.preventDefault();
+      if (!st.val){ toast('Een kaart heeft een pdf nodig.'); return; }
+      const data = {naam:$('#k_naam').value.trim()||'Kaart', omschrijving:$('#k_oms').value.trim(), bestand:st.val};
+      if (await write(()=>edoc('kaarten/'+id).update(data))){ closeModal(); toast('Kaart opgeslagen'); }
+    });
+    armDelete(ov.querySelector('#k_del'), async ()=>{ if (await write(()=>edoc('kaarten/'+id).delete())){ closeModal(); await log('', `Kaart verwijderd: ${k.naam}`); } });
+  });
+}
+async function moveKaart(id, dir){
+  const list = kaartList(); const i = list.findIndex(([k])=>k===id), j = i+dir;
+  if (i<0 || j<0 || j>=list.length) return;
+  const [a, b] = [list[i], list[j]];
+  const va = a[1].volgorde ?? i, vb = b[1].volgorde ?? j;
+  await write(()=>edoc('kaarten/'+a[0]).update({volgorde: vb===va ? vb+dir : vb}));
+  await write(()=>edoc('kaarten/'+b[0]).update({volgorde: va}));
+}
+document.addEventListener('click', e=>{
+  const t = e.target.closest && e.target.closest('button'); if (!t) return;
+  if (t.dataset.kview) return kaartViewer(t.dataset.kview);
+  if (t.dataset.kedit) return kaartDialog(t.dataset.kedit);
+  if (t.dataset.kup) return moveKaart(t.dataset.kup, -1);
+  if (t.dataset.kdown) return moveKaart(t.dataset.kdown, 1);
+});
+$('#k_add').addEventListener('change', e=>{ const fs = [...(e.target.files||[])]; e.target.value=''; if (fs.length) addKaarten(fs); });
+
+/* ---------- updates (admin) ---------- */
+async function renderUpdates(){
+  const box = $('#updbox'); if (!box || !SELF || ME.rol!=='admin') return;
+  let u; try { const r = await fetch('api/update', {cache:'no-store', credentials:'same-origin'}); u = r.ok ? await r.json() : null; } catch(_){}
+  if (!u){ box.innerHTML = '<p class="hint">De server ondersteunt nog geen updates. Vervang server.js en herstart de stack.</p>'; return; }
+  const kort = v => v && v.sha ? v.sha.slice(0,7) + (v.datum ? ' · ' + new Date(v.datum).toLocaleString('nl-NL',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '') : 'onbekend';
+  const nieuw = u.nieuwste && u.nieuwste.sha && (!u.huidig || u.huidig.sha !== u.nieuwste.sha);
+  box.innerHTML = `
+    <div class="srow"><span>Huidige versie</span><b class="mono">${esc(kort(u.huidig))}</b></div>
+    <div class="srow"><span>Nieuwste op GitHub</span><b class="mono">${esc(kort(u.nieuwste))}${nieuw?' <span class="tag-new">nieuw</span>':''}</b></div>
+    ${u.nieuwste && u.nieuwste.bericht ? `<p class="hint">${esc(u.nieuwste.bericht.split('\n')[0])}</p>` : ''}
+    <div class="srow"><label for="upd_auto">Automatisch bijwerken (tussen 03:00 en 05:00, of als niemand online is)</label><input type="checkbox" id="upd_auto" ${u.auto?'checked':''}></div>
+    <p class="hint">${esc(u.status||'')}${u.laatsteCheck?' · gecontroleerd '+esc(new Date(u.laatsteCheck).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})):''}</p>
+    <div class="sbtns"><button class="btn" type="button" id="upd_check">Nu controleren</button><button class="btn primary" type="button" id="upd_go" ${nieuw?'':'disabled'}>Nu bijwerken</button></div>`;
+  const post = async (p, body) => { const r = await fetch('api/update/'+p, {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify(body||{})}); const j = await r.json().catch(()=>({})); if (!r.ok) throw new Error(j.error||'Dat lukte niet.'); return j; };
+  box.querySelector('#upd_auto').addEventListener('change', async e=>{ try { await post('settings', {auto:e.target.checked}); toast('Opgeslagen'); } catch(err){ toast(err.message); } renderUpdates(); });
+  box.querySelector('#upd_check').addEventListener('click', async ()=>{ try { await post('check'); } catch(err){ toast(err.message); } renderUpdates(); });
+  box.querySelector('#upd_go').addEventListener('click', async ev=>{
+    ev.target.disabled = true; ev.target.textContent = 'Bezig…';
+    try { await post('install'); toast('Update geïnstalleerd. De server herstart; het bord laadt zo opnieuw.'); } catch(err){ toast(err.message); renderUpdates(); }
+  });
+}
+window.addEventListener('bb-nieuwe-versie', ()=>{
+  const rustig = () => !$('#ov') && !busy() && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
+  const go = () => { if (rustig()) location.reload(); else { toast('Er is een nieuwe versie; het bord ververst zodra je klaar bent.'); setTimeout(go, 15000); } };
+  setTimeout(go, 1500);
+});
 
 /* ---------- start ---------- */
 let renderQueued = false;

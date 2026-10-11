@@ -52,6 +52,23 @@ De server controleert de rechten bij elke wijziging. Een chauffeur krijgt van de
 
 In het tabblad **Gebruikers** maakt de admin per gebruiker een inlog-QR-code (kolom *Inlog-QR*). Scannen met de camera van de telefoon logt direct in, zonder wachtwoord. De code kun je afdrukken, vernieuwen (de oude werkt dan niet meer) of intrekken. Wie de code heeft, kan inloggen: behandel hem als een wachtwoord.
 
+## Automatische updates
+
+De server haalt zelf nieuwe versies op van GitHub (`DGerding-2307/busbord`, branch `main`).
+
+- Elk half uur kijkt hij of er een nieuwe versie is. Die wordt alleen geïnstalleerd **tussen 03:00 en 05:00** of **als niemand online is**, zodat een update nooit midden in een dienst gebeurt.
+- Bijwerken = `server.js`, `package.json` en de map `public/` vervangen. De map `data/` wordt nooit aangeraakt. Elk bestand wordt gecontroleerd tegen GitHub voordat het wordt geplaatst; de oude versie gaat naar `data/updates/`.
+- Daarna stopt de server en start Docker hem opnieuw (daarvoor is `restart: unless-stopped` nodig, zoals in de stack). Open schermen laden vanzelf de nieuwe versie zodra niemand iets aan het invullen is.
+- In **Instellingen → Updates** (alleen admin) zie je de versie, kun je automatisch bijwerken uitzetten en kun je direct controleren of bijwerken.
+- Uitzetten kan ook met `AUTO_UPDATE=uit` in de stack. Bij een privé-repository zet je een `GITHUB_TOKEN` (alleen leesrechten) in de stack.
+- Terug naar de vorige versie: stop de stack, kopieer de bestanden uit de nieuwste map in `data/updates/` terug en start de stack.
+
+Let op: wie kan pushen naar de GitHub-repository, kan code op je server laten draaien. Geef dus niemand anders schrijfrechten op die repository.
+
+## Kaarten
+
+Tabblad **Kaarten**: per evenement meerdere pdf-kaarten (plattegrond, routes, parkeren). Admin en coördinator voegen ze toe (meerdere tegelijk), geven ze een naam en omschrijving en zetten ze op volgorde. Iedereen met toegang tot het evenement, ook chauffeurs, kan ze bekijken; op een telefoon openen ze in de eigen pdf-weergave met inzoomen.
+
 ## Meldingen op telefoon en pc
 
 Iedere gebruiker zet meldingen per apparaat aan: via zijn naam rechtsboven (of Instellingen) → **Meldingen aanzetten**. Je krijgt dan een melding als een rit die je mag zien van fase verandert, bij alle evenementen waar je toegang toe hebt, ook als het bord dicht is. Alleen als je de afgelopen 60 minuten online was, niet voor je eigen wijzigingen, en niet als het bord op dat moment open en in beeld is (dan hoor je het pingeltje). Tik op de melding om de rit te openen.

@@ -184,7 +184,7 @@ function visible(u, p, data) {
   const w = where(p);
   if (w.kind === 'other') return u.rol === 'admin';
   if (!seesEvent(u, w.E)) return false;
-  if (u.rol !== 'chauffeur' || w.kind === 'event') return true;
+  if (u.rol !== 'chauffeur' || w.kind === 'event' || w.kind === 'kaarten') return true;
   const own = (u.voertuig || {})[w.E];
   if (!own) return false;
   if (w.kind === 'buses') return w.id === own;
@@ -256,6 +256,7 @@ function badData(kind, data, depth) {
       chk('geenRetour', v => typeof v === 'boolean') || chk('busId', v => typeof v === 'string' && (v === '' || SEG.test(v)));
   }
   if (kind === 'buses') return chk('status', v => STATUS_IDS.includes(v));
+  if (kind === 'kaarten') return chk('bestand', v => v && typeof v === 'object' && /^[a-f0-9]{24}$/.test(v.id)) || chk('naam', v => typeof v === 'string') || chk('volgorde', v => Number.isFinite(+v));
   if (kind === 'log') return chk('soort', v => v === 'auto' || v === 'notitie') || chk('busId', v => typeof v === 'string' && (v === '' || SEG.test(v)));
   if (kind === 'event') return chk('van', d) || chk('tot', d) || chk('standaardDuur', v => Number.isFinite(+v) && +v > 0 && +v < 1000);
   return null;
@@ -391,6 +392,96 @@ function notifyFase(p, prev, ride, actor) {
     sendPush(s, payload);
   }
 }
+
+// ---------- automatische updates vanaf GitHub ----------
+const vm = require('vm');
+const UPDATE_REPO = process.env.UPDATE_REPO || 'DGerding-2307/busbord';
+const UPDATE_BRANCH = process.env.UPDATE_BRANCH || 'main';
+const GH_API = process.env.GITHUB_API || 'https://api.github.com';
+const GH_RAW = process.env.GITHUB_RAW || 'https://raw.githubusercontent.com';
+const VERSION_FILE = path.join(DATA_DIR, 'version.json');
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+let settings = { autoUpdate: true };
+try { if (fs.existsSync(SETTINGS_FILE)) settings = Object.assign(settings, JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'))); } catch (_) {}
+if (/^(0|nee|uit|false)$/i.test(process.env.AUTO_UPDATE || '')) settings.autoUpdate = false;
+let current = null;
+try { if (fs.existsSync(VERSION_FILE)) current = JSON.parse(fs.readFileSync(VERSION_FILE, 'utf8')); } catch (_) {}
+const upd = { nieuwste: null, laatsteCheck: null, status: 'Nog niet gecontroleerd', bezig: false };
+// versie van de pagina, zodat open schermen na een update vanzelf verversen
+let BUILD = '';
+try { BUILD = crypto.createHash('sha256').update(fs.readFileSync(path.join(PUBLIC, 'index.html'))).update(fs.readFileSync(path.join(PUBLIC, 'claude-shim.js'))).digest('hex').slice(0, 12); } catch (_) {}
+
+function ghGet(url, redirects) {
+  redirects = redirects || 0;
+  return new Promise((resolve, reject) => {
+    const headers = { 'User-Agent': 'voertuigenbord-updater', 'Accept': url.includes('/repos/') ? 'application/vnd.github+json' : '*/*' };
+    if (process.env.GITHUB_TOKEN) headers.Authorization = 'Bearer ' + process.env.GITHUB_TOKEN;
+    const req = (url.startsWith('http:') ? http : https).get(url, { headers, timeout: 20000 }, r => {
+      if ([301, 302, 307, 308].includes(r.statusCode) && r.headers.location && redirects < 4) { r.resume(); return resolve(ghGet(new URL(r.headers.location, url).href, redirects + 1)); }
+      const chunks = []; let size = 0;
+      r.on('data', c => { size += c.length; if (size > 30 * 1024 * 1024) req.destroy(new Error('te groot')); else chunks.push(c); });
+      r.on('end', () => r.statusCode === 200 ? resolve(Buffer.concat(chunks)) : reject(new Error('GitHub antwoordde ' + r.statusCode)));
+    });
+    req.on('timeout', () => req.destroy(new Error('GitHub reageert niet')));
+    req.on('error', reject);
+  });
+}
+async function checkUpdate() {
+  const c = JSON.parse(await ghGet(`${GH_API}/repos/${UPDATE_REPO}/commits/${encodeURIComponent(UPDATE_BRANCH)}`));
+  upd.nieuwste = { sha: c.sha, datum: c.commit && c.commit.committer && c.commit.committer.date, bericht: c.commit && c.commit.message || '' };
+  upd.laatsteCheck = Date.now();
+  const nieuw = !current || current.sha !== c.sha;
+  upd.status = nieuw ? 'Er is een nieuwe versie beschikbaar.' : 'Je hebt de nieuwste versie.';
+  return nieuw;
+}
+const UPDATABLE = p => p === 'server.js' || p === 'package.json' || /^public\/[A-Za-z0-9_\-./]+$/.test(p);
+async function installUpdate() {
+  if (upd.bezig) throw new Error('Er loopt al een update.');
+  upd.bezig = true; upd.status = 'Update downloaden…';
+  try {
+    if (!upd.nieuwste) await checkUpdate();
+    const sha = upd.nieuwste.sha;
+    const tree = JSON.parse(await ghGet(`${GH_API}/repos/${UPDATE_REPO}/git/trees/${sha}?recursive=1`));
+    const items = (tree.tree || []).filter(t => t.type === 'blob' && UPDATABLE(t.path) && !t.path.split('/').includes('..'));
+    if (!items.some(t => t.path === 'server.js') || !items.some(t => t.path === 'public/index.html')) throw new Error('De update is onvolledig (server.js of index.html ontbreekt).');
+    const files = [];
+    for (const t of items) {
+      const buf = await ghGet(`${GH_RAW}/${UPDATE_REPO}/${sha}/${t.path.split('/').map(encodeURIComponent).join('/')}`);
+      const blobSha = crypto.createHash('sha1').update(`blob ${buf.length}\0`).update(buf).digest('hex');
+      if (blobSha !== t.sha) throw new Error('Controle van ' + t.path + ' mislukt; update afgebroken.');
+      files.push({ p: t.path, buf });
+    }
+    new vm.Script(files.find(f => f.p === 'server.js').buf.toString('utf8'), { filename: 'server.js' });   // syntaxcontrole voor we iets vervangen
+    // oude versie bewaren
+    const bak = path.join(DATA_DIR, 'updates', new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16) + '-' + (current ? current.sha.slice(0, 7) : 'onbekend'));
+    for (const f of files) {
+      const dst = path.join(ROOT, f.p);
+      if (!dst.startsWith(ROOT + path.sep)) throw new Error('Ongeldig pad in update');
+      if (fs.existsSync(dst)) { fs.mkdirSync(path.dirname(path.join(bak, f.p)), { recursive: true }); fs.copyFileSync(dst, path.join(bak, f.p)); }
+    }
+    for (const f of files) {
+      const dst = path.join(ROOT, f.p);
+      fs.mkdirSync(path.dirname(dst), { recursive: true });
+      fs.writeFileSync(dst + '.nieuw', f.buf); fs.renameSync(dst + '.nieuw', dst);
+    }
+    current = { sha, datum: upd.nieuwste.datum, bericht: upd.nieuwste.bericht, geinstalleerd: new Date().toISOString() };
+    writeJSON(VERSION_FILE, current);
+    upd.status = 'Update geïnstalleerd, server herstart…';
+    console.log(`Update geïnstalleerd: ${sha.slice(0, 7)} (${files.length} bestanden). Oude versie bewaard in ${bak}. Herstarten…`);
+    setTimeout(() => shutdown(), 1500);   // Docker (restart: unless-stopped) start de server opnieuw
+  } finally { upd.bezig = false; }
+}
+async function autoUpdate() {
+  if (!settings.autoUpdate) return;
+  try {
+    if (!(await checkUpdate())) return;
+    const h = new Date().getHours();
+    if ((h >= 3 && h < 5) || clients.size === 0) await installUpdate();
+    else upd.status = 'Nieuwe versie gevonden; wordt geïnstalleerd tussen 03:00 en 05:00 of als niemand online is.';
+  } catch (e) { upd.status = 'Controleren mislukt: ' + e.message; console.error('Update:', e.message); }
+}
+setTimeout(autoUpdate, 2 * 60000);
+setInterval(autoUpdate, 30 * 60000);
 
 // ---------- http ----------
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json' };
@@ -535,6 +626,7 @@ async function handle(req, res) {
   if (p === '/api/events' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
     res.write('retry: 3000\n\n');
+    send(res, 'versie', { v: BUILD });
     send(res, 'state', { docs: stateFor(me) });
     const c = { res, uid: me.id, token: sess.token };
     clients.add(c);
@@ -574,6 +666,20 @@ async function handle(req, res) {
     dirty = true; save();
     return json(res, 200, { ok: true });
   }
+  // updates (alleen admin)
+  if (p.startsWith('/api/update')) {
+    if (me.rol !== 'admin') return json(res, 403, { error: 'Alleen een admin kan updates beheren.' });
+    if (p === '/api/update' && req.method === 'GET') return json(res, 200, { huidig: current, nieuwste: upd.nieuwste, auto: !!settings.autoUpdate, laatsteCheck: upd.laatsteCheck, status: upd.status, repo: UPDATE_REPO + '@' + UPDATE_BRANCH });
+    if (req.method !== 'POST') return json(res, 405, { error: 'Niet toegestaan' });
+    const b = await bodyJSON(req, res); if (!b) return;
+    if (p === '/api/update/settings') { settings.autoUpdate = !!b.auto; writeJSON(SETTINGS_FILE, settings); return json(res, 200, { ok: true }); }
+    try {
+      if (p === '/api/update/check') { await checkUpdate(); return json(res, 200, { ok: true }); }
+      if (p === '/api/update/install') { await installUpdate(); return json(res, 200, { ok: true }); }
+    } catch (e) { upd.status = 'Mislukt: ' + e.message; return json(res, 502, { error: e.message }); }
+    return json(res, 404, { error: 'Onbekend' });
+  }
+
   // pushmeldingen
   if (p === '/api/push/key' && req.method === 'GET') return json(res, 200, { key: push.vapid.publicKey });
   if (p === '/api/push/subscribe' && req.method === 'POST') {
@@ -633,7 +739,7 @@ async function handle(req, res) {
     const file = path.join(FILE_DIR, fm[1] + '.pdf');
     if (!fs.existsSync(file)) return json(res, 404, { error: 'Bestand niet gevonden' });
     const naam = String(url.searchParams.get('naam') || 'bestellijst.pdf').replace(/[^\w .()\-]/g, '_').slice(0, 120);
-    res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${naam}"`, 'Cache-Control': 'private, max-age=86400', 'Content-Security-Policy': 'sandbox' });
+    res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${naam}"`, 'Cache-Control': 'private, max-age=86400' });
     return fs.createReadStream(file).pipe(res);
   }
 

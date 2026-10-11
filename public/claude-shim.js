@@ -55,6 +55,9 @@
     es.addEventListener('state', function (e) { try { applyState(JSON.parse(e.data).docs); setStatus(true); } catch (err) { console.error(err); } });
     es.addEventListener('change', function (e) { try { applyChange(JSON.parse(e.data)); } catch (err) { console.error(err); } });
     es.addEventListener('reload', function () { location.reload(); });
+    es.addEventListener('versie', function (e) {
+      try { var v = JSON.parse(e.data).v; if (window.__BB_V && window.__BB_V !== v) window.dispatchEvent(new CustomEvent('bb-nieuwe-versie')); window.__BB_V = window.__BB_V || v; } catch (_) {}
+    });
     es.addEventListener('logout', function () { es.close(); toLogin(); });
     es.onerror = function () {
       setStatus(false, 'Verbinding met de server verbroken. Opnieuw verbinden…');
