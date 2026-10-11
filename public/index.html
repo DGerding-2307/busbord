@@ -10,7 +10,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,sans-serif;background:#F4F5F5}img{max-width:100%}[hidden]{display:none!important}</style>
-<script src="claude-shim.js?v=1791716916"></script>
+<script src="claude-shim.js?v=1791722627"></script>
 </head>
 <body>
 <title>Voertuigenbord logistiek</title>
@@ -596,6 +596,11 @@ details.cb-done summary{cursor:pointer;color:var(--muted);font-weight:700;paddin
 .bus.compact .crew .none{color:var(--muted)}
 .bus.compact .crew .bij{color:var(--muted)}
 .strip.compact .sbus{font-weight:800;font-size:14px;color:var(--fg)}
+.bus.compact .row1{flex-wrap:wrap;row-gap:2px;min-width:0}
+.bus.compact .name{white-space:normal;overflow-wrap:anywhere;min-width:0;flex:1 1 auto}
+.bus.compact .call{flex:0 0 auto;margin-left:auto}
+.bus.compact .row3{flex-wrap:wrap;row-gap:4px;min-width:0}
+.bus.compact .tel{margin-left:auto}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;font-weight:600;z-index:30;max-width:calc(100% - 32px)}
 @media (prefers-reduced-motion:no-preference){.strip{transition:transform .12s}.strip:hover{transform:translateY(-1px)}}
 @media (max-width:560px){.clock{margin-left:0}.clock .time{font-size:24px}.brand h1{font-size:21px}}
