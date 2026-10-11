@@ -1,0 +1,12 @@
+services:
+  busbord:
+    build: .
+    container_name: busbord
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - BUSBORD_USER=rodekruis
+      - BUSBORD_PASSWORD=verander-dit-wachtwoord
+    volumes:
+      - ./data:/data

@@ -1,0 +1,1 @@
+Zet hier eventueel xlsx.full.min.js neer voor Excel zonder internet (zie README).

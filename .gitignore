@@ -1,0 +1,5 @@
+# gegevens van de server: wachtwoorden, sessies, ritten, back-ups en bijlagen
+data/
+*.v[0-9]*.js
+node_modules/
+.DS_Store

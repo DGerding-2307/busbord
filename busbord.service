@@ -1,0 +1,18 @@
+# Kopieer naar /etc/systemd/system/busbord.service en pas paden en wachtwoord aan.
+[Unit]
+Description=Busbord personenvervoer
+After=network.target
+
+[Service]
+Type=simple
+User=busbord
+WorkingDirectory=/opt/busbord
+Environment=PORT=8080
+Environment=BUSBORD_USER=rodekruis
+Environment=BUSBORD_PASSWORD=verander-dit-wachtwoord
+ExecStart=/usr/bin/node /opt/busbord/server.js
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
