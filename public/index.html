@@ -10,7 +10,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,sans-serif;background:#F4F5F5}img{max-width:100%}[hidden]{display:none!important}</style>
-<script src="claude-shim.js?v=1791716687"></script>
+<script src="claude-shim.js?v=1791716916"></script>
 </head>
 <body>
 <title>Voertuigenbord logistiek</title>
@@ -595,6 +595,7 @@ details.cb-done summary{cursor:pointer;color:var(--muted);font-weight:700;paddin
 .bus.compact .crew{font-size:13.5px;color:var(--fg);white-space:normal;overflow:visible}
 .bus.compact .crew .none{color:var(--muted)}
 .bus.compact .crew .bij{color:var(--muted)}
+.strip.compact .sbus{font-weight:800;font-size:14px;color:var(--fg)}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;font-weight:600;z-index:30;max-width:calc(100% - 32px)}
 @media (prefers-reduced-motion:no-preference){.strip{transition:transform .12s}.strip:hover{transform:translateY(-1px)}}
 @media (max-width:560px){.clock{margin-left:0}.clock .time{font-size:24px}.brand h1{font-size:21px}}
@@ -2223,7 +2224,7 @@ function strip(id, c){
   return `<article class="strip compact st-${st}${late&&f!=='afgerond'?' late':''}${hl(id)}" draggable="${canMove(r)}" data-rit="${id}" tabindex="0" title="Klik voor alle gegevens van rit ${esc(r.nr)}">
     <div class="sh">${!canMove(r)?'':'<span class="grip" aria-hidden="true" title="Sleep naar een andere fase">⠿</span>'}<span class="call">${esc(b.roepnummer||'–')}</span><span class="ritnr">Rit ${esc(r.nr)}</span><span class="dest" title="${esc(r.bestemming)}">${esc(r.bestemming||'Geen bestemming')}</span><span class="vt" title="Gepland vertrek">${esc(r.gv||'--:--')}${late&&f!=='afgerond'?delta(d):''}</span></div>
     ${c.wachtOp!=null && f==='gepland' ? `<div class="warn">Wacht tot rit ${esc(c.wachtOp)} terug is</div>`:''}
-    ${stripInfo(r)}
+    ${stripInfo(r, b)}
     ${canMove(r) ? `<div class="sf"><span class="nav">
         ${fi>0?`<button class="back" type="button" data-back="${id}" title="Terug naar ${FASES[fi-1].naam}" aria-label="Terug naar ${FASES[fi-1].naam}">◂</button>`:''}
         ${FASES[fi].knop?`<button class="advance" type="button" data-adv="${id}">${(f==='aangekomen' && r.geenRetour) ? 'Afronden' : FASES[fi].knop} ▸</button>`:''}
@@ -2231,11 +2232,12 @@ function strip(id, c){
   </article>`;
 }
 // wat er mee gaat: posten en personen, materiaal, of allebei
-function stripInfo(r){
+function stripInfo(r, b){
   const rows = [];
+  rows.push(`<div class="sbus">${esc((b&&b.naam)||'Geen voertuig')}</div>`);
   if (hasP(r) && (r.teams || r.personen)) rows.push(`<div class="si" title="${esc(r.teams||'')}"><span class="si-k">${r.personen?esc(r.personen)+' pers.':'Pers.'}</span><span class="si-v">${esc(r.teams||'')}</span></div>`);
   if (hasM(r)) rows.push(`<div class="si" title="${esc(r.materiaal||'')}"><span class="si-k mat">Mat.</span><span class="si-v">${esc(r.materiaal||'materiaal')}</span></div>`);
-  return rows.length ? `<div class="sinfo">${rows.join('')}</div>` : '';
+  return `<div class="sinfo">${rows.join('')}</div>`;
 }
 // klik op een strip (niet op een knop) opent de rit
 document.addEventListener('click', e=>{
