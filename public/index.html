@@ -10,7 +10,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,sans-serif;background:#F4F5F5}img{max-width:100%}[hidden]{display:none!important}</style>
-<script src="claude-shim.js?v=1791716260"></script>
+<script src="claude-shim.js?v=1791716687"></script>
 </head>
 <body>
 <title>Voertuigenbord logistiek</title>
@@ -590,6 +590,11 @@ details.cb-done summary{cursor:pointer;color:var(--muted);font-weight:700;paddin
 .strip.compact .si-k{font-family:var(--mono);font-weight:700;color:var(--ocean);white-space:nowrap}
 .strip.compact .si-k.mat{color:var(--sand)}
 .strip.compact .si-v{color:var(--fg);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.bus.compact .call{white-space:nowrap}
+.bus.compact .call-k{font-family:var(--sans);font-weight:600;font-size:12px;color:var(--muted)}
+.bus.compact .crew{font-size:13.5px;color:var(--fg);white-space:normal;overflow:visible}
+.bus.compact .crew .none{color:var(--muted)}
+.bus.compact .crew .bij{color:var(--muted)}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;font-weight:600;z-index:30;max-width:calc(100% - 32px)}
 @media (prefers-reduced-motion:no-preference){.strip{transition:transform .12s}.strip:hover{transform:translateY(-1px)}}
 @media (max-width:560px){.clock{margin-left:0}.clock .time{font-size:24px}.brand h1{font-size:21px}}
@@ -2175,7 +2180,8 @@ function render(){
     const st = b.status||'vrij';
     const tel = String(b.telefoon||'').trim();
     return `<div class="bus compact st-${st}${busShown(id)?'':' dim'}" role="button" tabindex="0" data-bus="${id}" title="Klik voor alle gegevens van ${esc(b.naam)}">
-      <div class="row1"><span class="name">${esc(b.naam)}</span><span class="call">${esc(b.roepnummer||'')}</span></div>
+      <div class="row1"><span class="name">${esc(b.naam)}</span>${b.roepnummer?`<span class="call"><span class="call-k">Roepnummer:</span> ${esc(b.roepnummer)}</span>`:''}</div>
+      <div class="crew">${b.chauffeur?esc(b.chauffeur):'<span class="none">geen chauffeur</span>'}${b.bijrijder?`<span class="bij"> + ${esc(b.bijrijder)}</span>`:''}</div>
       <div class="row3">${can('bus.status') ? `<button class="pill st-${st}" data-cycle="${id}" type="button" title="${STATUS[st]} · klik om status te wisselen">${PILL[st]}</button>` : `<span class="pill st-${st}" style="cursor:default">${PILL[st]}</span>`}${tel?`<a class="tel" href="tel:${esc(tel.replace(/[^\d+]/g,''))}" title="Bel ${esc(b.chauffeur||'chauffeur')}">${esc(tel)}</a>`:'<span class="tel none">geen telefoon</span>'}</div>
     </div>`;
   }).join('');
